@@ -6,9 +6,8 @@ Create a command line tool in python, having these features:
     c.Make a new release from a tag.
         Use release name from user input.
         If not, auto generate release name by format "release/dd-mm-yy"
-"""
 
-"""
+
 ./week4.2_ex.py tag --lastet -> output lastet tag
 ./week4.2_ex.py tag --create
 
@@ -27,8 +26,8 @@ if not API_KEY:
     exit(1)
 
 
-def get_latest_tag():
-    url = BASE_URL + "/repos/itnna96/toya_week04/tags"
+def get_latest_tag(repo_name):
+    url = BASE_URL + f'/repos/{repo_name}/tags'
     reponse = requests.get(url,headers=HEADERS)
     if reponse.status_code !=200:
         print("Can't get tags.")
@@ -54,19 +53,19 @@ def get_latest_tag():
     print(f"Latest version is v{latest}.")
     return latest
 
-def get_sha_main():
-    url = BASE_URL + '/repos/itnna96/toya_week04/branches/master'
+def get_sha_main(repo_name):
+    url = BASE_URL + f'/repos/{repo_name}/branches/master'
     reponse = requests.get(url,headers=HEADERS)
     if reponse.status_code != 200:
         print('Cant get branch main. Error: {repose.text}')
     sha = reponse.json()['commit']['sha']
     # print(sha)
     return sha
-def create_tag():
-    url = BASE_URL + "/repos/itnna96/toya_week04/git/refs"
-    latest_tag = get_latest_tag()
+def create_tag(repo_name):
+    url = BASE_URL + f'/repos/{repo_name}/git/refs'
+    latest_tag = get_latest_tag(repo_name)
     tag = f"refs/tags/v{latest_tag + 1}"
-    sha = get_sha_main()
+    sha = get_sha_main(repo_name)
     if not sha:
         print("Empty SHA. Cant create tag.")
         return False
@@ -84,22 +83,34 @@ def create_tag():
     print(f"Tag {tag} created success!")
     return True
 
-def create_release():
-    url = BASE_URL + "/repos/itnna96/master/releases"
-    latest_tag = get_latest_tag()
-    tag = f"v{latest_tag}"
-    tag_name = {
-        "tag_name": {latest_tag}
+def create_release(repo_name,_tag,_name):
+    url = BASE_URL + f'/repos/{repo_name}/releases'
+
+    #format date time
+    if not _name:
+        "release/dd-mm-yy"
+        from datetime import date
+        _name = date.today().strftime("release/%d-%m-%y")
+
+    payload = {
+        "tag_name": _tag,
+        "name": _name
     }
-    reponse = requests.post(url,headers=HEADERS,json=tag_name)
-    print(reponse.status_code)
-    print(reponse.text)
+
+    reponse = requests.post(url,headers=HEADERS,json=payload)
+    if reponse.status_code !=201:
+        print('Error')
+        print(reponse.txt)
+        return
+    
+    print(f'New release create from tag {_tag}, with name: {_name}')
     return True
 
 if __name__ == "__main__":
 
     paser = argparse.ArgumentParser(description="Github Tool")
     sub_paser=paser.add_subparsers(dest="command")
+    paser.add_argument('REPO',help='Repository name.')
     ##Tag command
     tag_parser=sub_paser.add_parser('tag',help="Manage tag.")
     tag_parser.add_argument('--latest',action='store_true',help='Get latest tag.')
@@ -110,12 +121,12 @@ if __name__ == "__main__":
     release_paser.add_argument('--name','-n',help='Name of release',required=False)    
 
     args = paser.parse_args()
-
+    repo_name = args.REPO
     if args.command == 'tag':
         if args.latest == True:
-            get_latest_tag()
+            get_latest_tag(repo_name)
         if args.create == True:
-            create_tag()
+            create_tag(repo_name)
 
     if args.command == 'release':
-        create_release(args.tag,args.name)
+        create_release(repo_name,args.tag,args.name)
